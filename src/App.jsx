@@ -3,6 +3,7 @@ import { useState } from "react";
 import { read, utils } from "xlsx";
 import ResultTable from "./Table";
 import "./app.css";
+import { mkConfig, generateCsv, download } from "export-to-csv";
 // import excelToJson from "convert-excel-to-json";
 // import parser from "simple-excel-to-json";
 
@@ -19,6 +20,8 @@ export default function App() {
   // const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const csvConfig = mkConfig({ useKeysAsHeaders: true });
+
   async function handleFile(e) {
     setLoading(true);
     const f = await e.target.files[0].arrayBuffer();
@@ -27,15 +30,17 @@ export default function App() {
     const sheetData = utils.sheet_to_json(ws);
     // setData(sheetData);
     const agents = [];
-
+    console.log(sheetData);
     sheetData.forEach((order) => {
+      console.log(order);
       let i = agents.findIndex(
         (a) => a[AGENT.NAME].trim() === order["AGENT NAME"].trim()
       );
       if (i !== -1) {
-        agents[i][AGENT.ORDERS] += 1;
-        if (order.STATUS === "DELIVERED") agents[i][AGENT.CONFIRM] += 1;
-        else agents[i][AGENT.CANCELLED] += 1;
+        agents[i][AGENT.ORDERS] += parseInt(order["QUNTITY"]);
+        if (order.STATUS === "DELIVERED")
+          agents[i][AGENT.CONFIRM] += parseInt(order["QUNTITY"]);
+        else agents[i][AGENT.CANCELLED] += parseInt(order["QUNTITY"]);
         agents[i][AGENT.P_CONFIRM] =
           Math.round(
             (agents[i][AGENT.CONFIRM] / agents[i][AGENT.ORDERS]) * 100
@@ -47,9 +52,11 @@ export default function App() {
       } else {
         agents.push({
           [AGENT.NAME]: order["AGENT NAME"],
-          [AGENT.ORDERS]: 1,
-          [AGENT.CONFIRM]: order.STATUS === "DELIVERED" ? 1 : 0,
-          [AGENT.CANCELLED]: order.STATUS === "DELIVERED" ? 0 : 1,
+          [AGENT.ORDERS]: parseInt(order["QUNTITY"]),
+          [AGENT.CONFIRM]:
+            order.STATUS === "DELIVERED" ? parseInt(order["QUNTITY"]) : 0,
+          [AGENT.CANCELLED]:
+            order.STATUS === "DELIVERED" ? 0 : parseInt(order["QUNTITY"]),
           [AGENT.P_CONFIRM]: "0%",
           [AGENT.P_CANCELLED]: "0%",
         });
@@ -77,6 +84,7 @@ export default function App() {
     setResult(agents);
     setLoading(false);
   }
+
   return (
     <Box p={5} minH={"100vh"} bg={"teal.100"}>
       <Container maxW={"container.lg"}>
@@ -94,9 +102,12 @@ export default function App() {
               <Button
                 colorScheme="teal"
                 variant={"outline"}
-                onClick={() => window.print()}
+                onClick={() => {
+                  const csv = generateCsv(csvConfig)(result);
+                  download(csvConfig)(csv);
+                }}
               >
-                🖨 Print
+                🔽download csv
               </Button>
             </div>
           )}
